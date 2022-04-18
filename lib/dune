@@ -1,0 +1,20 @@
+(library
+ (name bitarray)
+ (libraries base fmt)
+ (foreign_stubs
+  (language c)
+  (names bitarray_stubs)
+  (flags :standard -O3 -march=native -Wall))
+ (foreign_archives bitarray)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests)
+ (instrumentation (backend landmarks)))
+
+(rule
+ (deps bitarray.ispc)
+ (targets bitarray.o bitarray.h libbitarray.a)
+ (action
+  (progn
+   (run ispc -g --pic -o bitarray.o -h bitarray.h bitarray.ispc)
+   (run ar -rcs libbitarray.a bitarray.o))))

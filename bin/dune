@@ -1,0 +1,5 @@
+(executable
+ (name bench)
+ (libraries bitarray core core_bench core_unix.command_unix)
+ (preprocess
+  (pps ppx_jane)))
