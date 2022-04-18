@@ -8,8 +8,7 @@
  (foreign_archives bitarray)
  (preprocess
   (pps ppx_jane))
- (inline_tests)
- (instrumentation (backend landmarks)))
+ (inline_tests))
 
 (rule
  (deps bitarray.ispc)
