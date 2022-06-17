@@ -8,7 +8,9 @@ type t = { len : int; buf : buf } [@@deriving compare, hash, sexp]
 
 let length t = t.len
 let bits_per_word = 63
-let nwords len = (len / bits_per_word) + if len % bits_per_word > 0 then 1 else 0
+
+let nwords len =
+  (len / bits_per_word) + if len % bits_per_word > 0 then 1 else 0
 
 let create len v =
   let fill = if v then 0x7FFFFFFFFFFFFFFF else 0 in
@@ -63,12 +65,14 @@ let xor a b = { len = a.len; buf = Array.map2_exn a.buf b.buf ~f:( lxor ) }
 let hamming_weight x = Array.sum (module Int) x.buf ~f:Int.popcount
 
 let hamming_distance a b =
-  Array.fold2_exn a.buf b.buf ~f:(fun ct w w' -> ct + Int.popcount (w lxor w')) ~init:0
+  Array.fold2_exn a.buf b.buf
+    ~f:(fun ct w w' -> ct + Int.popcount (w lxor w'))
+    ~init:0
 
 let weighted_jaccard ?(pos_weight = 0.5) a b =
   ((Float.of_int (hamming_weight (not @@ and_ a b)) *. pos_weight)
-  +. (Float.of_int (hamming_weight (not @@ and_ (not a) (not b))) *. (1.0 -. pos_weight))
-  )
+  +. Float.of_int (hamming_weight (not @@ and_ (not a) (not b)))
+     *. (1.0 -. pos_weight))
   /. (Float.of_int @@ length a)
 
 let%expect_test "init-in-bounds" =

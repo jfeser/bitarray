@@ -2,8 +2,18 @@ typedef int32 word_t;
 
 export uniform bool bitarray_any(uniform word_t a[], uniform int len) {
   bool part = false;
-  foreach (i = 0 ... len) { part |= popcnt((int32)a[i]) > 0; }
+  foreach (i = 0 ... len) {
+    part |= popcnt((int32)a[i]) > 0;
+  }
   return any(part);
+}
+
+export uniform bool bitarray_all(uniform word_t a[], uniform int len) {
+  bool part = true;
+  foreach (i = 0 ... len) {
+    part &= popcnt((int32)a[i]) > 0;
+  }
+  return all(part);
 }
 
 export uniform int bitarray_hamming_weight(uniform word_t a[],
@@ -115,5 +125,79 @@ export void bitarray_corners(const uniform word_t a[], const uniform int w,
       x = (x == w - 1) ? 0 : (x + 1);
     }
     r[word_idx] = word;
+  }
+}
+
+uint64 bgemm8x8(uint64 A, uint64 B) {
+  const uniform uint64 ROW = 0x00000000000000FF;
+  const uniform uint64 COL = 0x0101010101010101;
+  uint64 C = 0;
+  for (uniform int i = 0; i < 8; ++i) {
+    uint64 p = COL & (A >> i);
+    uint64 r = ROW & (B >> i * 8);
+    C |= (p * r); // use ^ for GF(2) instead
+  }
+  return C;
+}
+
+export void bgemm_up_to_56x56(uniform uint64 C[], const uniform uint64 A[],
+                              const uniform uint64 B[], const uniform int N) {
+  foreach (i = 0 ... N, j = 0 ... N) {
+    for (uniform int k = 0; k < N; k++) {
+      C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+    }
+  }
+}
+
+#define TILE_SIZE 8
+
+// This SGEMM_tileNoSIMDIntrin() code is (much!) faster than above
+// implementations for serveral reasons: 1) Every memory fetch and store to
+// MatrixA, MatrixB, and MatrixC is achieved w/o general gather or scatter.
+//    This is because ISPC allows repeatedly changing the "axis of SPMD
+//    parallelism" (e.g. multiple foreach() loops, or even nesting a foreach()
+//    loop within a conventional for() loop.  Thus the compiler easily knows
+//    what loop iteration variable is used to index memory, and since adjacent
+//    it can easily block load adjacent elements in memory.
+// 2) No atomics or horizonal intrinsics were used in this operation.
+// 3) The code caches a wide sumTile[] of read/write values for re-use,
+//    presumably "locally" in multiple SIMD registers.  Importantly, b.c the
+//    compiler knows the single threaded foundation of the ISPC SPMD
+//    programmming model, it is easy for it to enable register allocation of
+//    such tiled data.
+//
+// But most importantly, this code is simple to undestand, debug, and easy to
+// maintain.
+export void bgemm_64x64(uniform uint64 matrixC[],
+                        const uniform uint64 matrixA[],
+                        const uniform uint64 matrixB[], uniform int N) {
+  uniform uint64 sumTile[TILE_SIZE], oneAVal;
+
+  for (uniform unsigned int m = 0; m < N; m++) {
+    for (uniform unsigned int k0 = 0; k0 < N; k0 += TILE_SIZE) {
+      // SPMD "horizontally" over TILE dimension:
+      foreach (ki = 0 ... TILE_SIZE) {
+        // No scatter required.
+        sumTile[ki] = 0;
+      }
+
+      // Loop over the the matrix N dimension:
+      for (uniform unsigned int n = 0; n < N; n++) {
+        oneAVal = matrixA[m * N + n];
+        // SPMD iterate over the TILE dimension, but within for loop nest:
+        foreach (kt = 0 ... TILE_SIZE) {
+          // Note, no gather required.
+          varying uint64 matB = matrixB[n * N + k0 + kt];
+          // Pure SIMD FMAC:
+          sumTile[kt] |= bgemm8x8(oneAVal, matB);
+        }
+      }
+
+      // SPMD "horizontally" again over TILE dimension:
+      foreach (ki = 0 ... TILE_SIZE) {
+        // Note, no scatter required.
+        matrixC[m * N + k0 + ki] = sumTile[ki];
+      }
+    }
   }
 }
