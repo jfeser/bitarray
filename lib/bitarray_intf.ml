@@ -51,8 +51,15 @@ module type S = sig
   module Blocked_matrix : sig
     type t [@@deriving compare, hash, sexp, quickcheck]
 
-    val init : int -> bool -> t
-    val ( * ) : t -> t -> t
+    val create : int -> bool -> t
     val to_matrix : t -> bool array array
+
+    module O : sig
+      val ( * ) : t -> t -> t
+      val lnot : t -> t
+      val ( land ) : t -> t -> t
+      val ( lor ) : t -> t -> t
+      val ( lxor ) : t -> t -> t
+    end
   end
 end

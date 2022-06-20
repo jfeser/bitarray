@@ -176,7 +176,7 @@ let%test_unit "hamming-weight" =
   done
 
 module Blocked_matrix = struct
-  type nonrec t = { m_buf : string; m_dim : int }
+  type nonrec t = { m_buf : string; m_dim : int; m_bit_dim : int }
   [@@deriving compare, hash, sexp, quickcheck]
 
   let quickcheck_shrinker = Shrinker.atomic
@@ -185,19 +185,18 @@ module Blocked_matrix = struct
     let open Generator.Let_syntax in
     let%bind m_dim = Generator.int_inclusive 1 8 in
     let%bind m_buf = Generator.string_with_length ~length:(m_dim * m_dim * 8) in
-    return { m_dim; m_buf }
+    return { m_dim; m_buf; m_bit_dim = 8 * m_dim }
 
-  let init bit_dim v =
-    if bit_dim % 8 <> 0 then
-      raise_s [%message "dimension must be a multiple of 8" (bit_dim : int)];
-    let block_width = bit_dim / 8 in
+  let create m_bit_dim v =
+    let round_bit_dim = Int.round_up ~to_multiple_of:8 m_bit_dim in
+    let block_width = round_bit_dim / 8 in
     let n_blocks = block_width * block_width in
     let n_bytes = n_blocks * 8 in
     let init = if v then '\xFF' else '\x00' in
-    { m_dim = block_width; m_buf = String.make n_bytes init }
+    { m_dim = block_width; m_buf = String.make n_bytes init; m_bit_dim }
 
   let[@inline] n_bits m = m.m_dim * 64
-  let[@inline] bit_dim m = m.m_dim * 8
+  let[@inline] bit_dim m = m.m_bit_dim
 
   let get m i j =
     let n = m.m_dim in
@@ -215,6 +214,31 @@ module Blocked_matrix = struct
     let byte = Char.to_int m.m_buf.[byte_idx] in
     (byte lsr (inner_idx % 8)) land 0x1 > 0
 
+  let set m i j v =
+    let n = m.m_dim in
+    let bit_dim = bit_dim m in
+    assert (0 <= i && i < bit_dim && 0 <= j && j < bit_dim);
+    (* coordinates of the block and inside the block *)
+    let block_i = i / 8 and block_j = j / 8 in
+    let inner_i = i % 8 and inner_j = j % 8 in
+    (* index of the block (in words) *)
+    let block_idx = (block_i * n) + block_j in
+    (* index into the block (in bits) *)
+    let inner_idx = (inner_i * 8) + inner_j in
+    (* index into the buffer *)
+    let byte_idx = (block_idx * 8) + (inner_idx / 8) in
+    let byte = Char.to_int m.m_buf.[byte_idx] in
+    let bit_idx = inner_idx % 8 in
+    let byte' =
+      Char.of_int_exn (byte land lnot (1 lsl bit_idx) lor (v lsl bit_idx))
+    in
+    let buf' = Bytes.of_string m.m_buf in
+    Bytes.set buf' byte_idx byte';
+    {
+      m with
+      m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf';
+    }
+
   let to_matrix a =
     let bit_dim = bit_dim a in
     let b = Array.make_matrix ~dimx:bit_dim ~dimy:bit_dim false in
@@ -225,14 +249,51 @@ module Blocked_matrix = struct
     done;
     b
 
-  let ( * ) a b =
-    assert (a.m_dim = b.m_dim);
-    let buf = Bytes.make (String.length a.m_buf) '\x00' in
-    bitarray_mul a.m_buf b.m_buf buf a.m_dim;
-    {
-      m_dim = a.m_dim;
-      m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
-    }
+  module O = struct
+    let ( * ) a b =
+      assert (a.m_dim = b.m_dim);
+      let buf = Bytes.make (String.length a.m_buf) '\x00' in
+      bitarray_mul a.m_buf b.m_buf buf a.m_dim;
+      {
+        a with
+        m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+
+    let ( land ) a b =
+      assert (a.m_dim = b.m_dim);
+      let buf = Bytes.make (String.length a.m_buf) '\x00' in
+      bitarray_and a.m_buf b.m_buf buf;
+      {
+        a with
+        m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+
+    let ( lor ) a b =
+      assert (a.m_dim = b.m_dim);
+      let buf = Bytes.make (String.length a.m_buf) '\x00' in
+      bitarray_or a.m_buf b.m_buf buf;
+      {
+        a with
+        m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+
+    let ( lxor ) a b =
+      assert (a.m_dim = b.m_dim);
+      let buf = Bytes.make (String.length a.m_buf) '\x00' in
+      bitarray_xor a.m_buf b.m_buf buf;
+      {
+        a with
+        m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+
+    let lnot a =
+      let buf = Bytes.make (String.length a.m_buf) '\x00' in
+      bitarray_not a.m_buf buf;
+      {
+        a with
+        m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+  end
 
   let jaccard_distance a b =
     assert (a.m_dim = b.m_dim);
