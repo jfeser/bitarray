@@ -49,10 +49,16 @@ module type S = sig
   val corners : w:int -> h:int -> t -> t
 
   module Blocked_matrix : sig
-    type t [@@deriving compare, hash, sexp, quickcheck]
+    type bitarray
+    type t [@@deriving compare, equal, hash, sexp, quickcheck]
 
     val create : int -> bool -> t
+    val identity : int -> t
     val to_matrix : t -> bool array array
+    val to_bitarray : t -> bitarray
+    val dim : t -> int
+    val get : t -> int -> int -> bool
+    val set : t -> int -> int -> bool -> t
 
     module O : sig
       val ( * ) : t -> t -> t
@@ -62,4 +68,5 @@ module type S = sig
       val ( lxor ) : t -> t -> t
     end
   end
+  with type bitarray := t
 end

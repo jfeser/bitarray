@@ -48,8 +48,8 @@ let replicate =
 let mul =
   Bench.Test.create_indexed ~name:"mul"
     ~args:[ 1; 2; 3; 4; 5; 6; 7; 8 (* 9; 10 *) ] (fun n_blocks ->
-      let x = V.Blocked_matrix.init (8 * n_blocks) false in
-      Staged.stage (fun () -> V.Blocked_matrix.(x * x)))
+      let x = V.Blocked_matrix.create (8 * n_blocks) false in
+      Staged.stage (fun () -> V.Blocked_matrix.O.(x * x)))
 
 let () =
   Random.self_init ();

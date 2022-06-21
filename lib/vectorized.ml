@@ -177,7 +177,7 @@ let%test_unit "hamming-weight" =
 
 module Blocked_matrix = struct
   type nonrec t = { m_buf : string; m_dim : int; m_bit_dim : int }
-  [@@deriving compare, hash, sexp, quickcheck]
+  [@@deriving compare, equal, hash, sexp, quickcheck]
 
   let quickcheck_shrinker = Shrinker.atomic
 
@@ -195,6 +195,7 @@ module Blocked_matrix = struct
     let init = if v then '\xFF' else '\x00' in
     { m_dim = block_width; m_buf = String.make n_bytes init; m_bit_dim }
 
+  let dim m = m.m_bit_dim
   let[@inline] n_bits m = m.m_dim * 64
   let[@inline] bit_dim m = m.m_bit_dim
 
@@ -217,7 +218,10 @@ module Blocked_matrix = struct
   let set m i j v =
     let n = m.m_dim in
     let bit_dim = bit_dim m in
-    assert (0 <= i && i < bit_dim && 0 <= j && j < bit_dim);
+    if i < 0 || i >= bit_dim || j < 0 || j >= bit_dim then
+      raise_s
+        [%message
+          "matrix index out of bounds" (i : int) (j : int) (bit_dim : int)];
     (* coordinates of the block and inside the block *)
     let block_i = i / 8 and block_j = j / 8 in
     let inner_i = i % 8 and inner_j = j % 8 in
@@ -229,6 +233,7 @@ module Blocked_matrix = struct
     let byte_idx = (block_idx * 8) + (inner_idx / 8) in
     let byte = Char.to_int m.m_buf.[byte_idx] in
     let bit_idx = inner_idx % 8 in
+    let v = Bool.to_int v in
     let byte' =
       Char.of_int_exn (byte land lnot (1 lsl bit_idx) lor (v lsl bit_idx))
     in
@@ -239,6 +244,12 @@ module Blocked_matrix = struct
       m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf';
     }
 
+  let identity n =
+    let rec set_diag m i =
+      if i < n then set_diag (set m i i true) (i + 1) else m
+    in
+    set_diag (create n false) 0
+
   let to_matrix a =
     let bit_dim = bit_dim a in
     let b = Array.make_matrix ~dimx:bit_dim ~dimy:bit_dim false in
@@ -248,6 +259,18 @@ module Blocked_matrix = struct
       done
     done;
     b
+
+  let of_matrix a =
+    let bit_dim = Array.length a in
+    let b = ref (create bit_dim false) in
+    for i = 0 to bit_dim - 1 do
+      for j = 0 to bit_dim - 1 do
+        if a.(i).(j) then b := set !b i j true
+      done
+    done;
+    !b
+
+  let to_bitarray a = { buf = a.m_buf; len = a.m_bit_dim * a.m_bit_dim }
 
   module O = struct
     let ( * ) a b =

@@ -173,6 +173,30 @@ let%test_unit "mul" =
       [%test_result: Bit_matrix.t] ~expect actual)
     (module V.Blocked_matrix)
 
+let%test_unit "mul" =
+  let module VM = V.Blocked_matrix in
+  let a =
+    VM.of_matrix
+      [|
+        [| false; true; false; false; false |];
+        [| false; false; true; false; false |];
+        [| false; false; false; true; false |];
+        [| false; false; false; false; false |];
+        [| false; false; false; false; false |];
+      |]
+  in
+  let b =
+    VM.of_matrix
+      [|
+        [| false; false; false; false; false |];
+        [| false; false; false; false; false |];
+        [| false; false; false; false; false |];
+        [| false; false; false; false; true |];
+        [| false; false; false; false; false |];
+      |]
+  in
+  Stdio.print_s [%message (VM.to_matrix VM.O.(a * a * b) : Bit_matrix.t)]
+
 let%expect_test "to_matrix" =
   let module VM = V.Blocked_matrix in
   let zero =
@@ -187,9 +211,12 @@ let%expect_test "to_matrix" =
         m_bit_dim = 8;
       }
   in
+  let id' = VM.identity 8 in
   Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix id);
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix id');
   Fmt.pr "%a\n" Bit_matrix.pp VM.(to_matrix O.(id * id));
-  [%expect {|
+  [%expect
+    {|
     ........
     ........
     ........
@@ -198,6 +225,15 @@ let%expect_test "to_matrix" =
     ........
     ........
     ........
+
+    █.......
+    .█......
+    ..█.....
+    ...█....
+    ....█...
+    .....█..
+    ......█.
+    .......█
 
     █.......
     .█......

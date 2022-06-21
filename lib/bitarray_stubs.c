@@ -173,10 +173,6 @@ CAMLprim value bitarray_mul_stub(value b1, value b2, value b3, value n) {
                  *p2 = (const uint64_t *)String_val(b2);
   uint64_t *p3 = (uint64_t *)Bytes_val(b3);
   int int_n = Int_val(n);
-  if (int_n <= 7) {
-    bgemm_up_to_56x56(p3, p1, p2, int_n);
-  } else {
-    bgemm_64x64(p3, p1, p2, int_n);
-  }
+  bgemm(p3, p1, p2, int_n);
   return Val_unit;
 }

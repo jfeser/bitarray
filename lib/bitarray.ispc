@@ -140,13 +140,16 @@ uint64 bgemm8x8(uint64 A, uint64 B) {
   return C;
 }
 
-export void bgemm_up_to_56x56(uniform uint64 C[], const uniform uint64 A[],
-                              const uniform uint64 B[], const uniform int N) {
-  foreach (i = 0 ... N, j = 0 ... N) {
-    for (uniform int k = 0; k < N; k++) {
-      C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
-    }
+uniform uint64 bgemm8x8(uniform uint64 A, uniform uint64 B) {
+  const uniform uint64 ROW = 0x00000000000000FF;
+  const uniform uint64 COL = 0x0101010101010101;
+  uniform uint64 C = 0;
+  for (uniform int i = 0; i < 8; ++i) {
+    uniform uint64 p = COL & (A >> i);
+    uniform uint64 r = ROW & (B >> i * 8);
+    C |= (p * r); // use ^ for GF(2) instead
   }
+  return C;
 }
 
 #define TILE_SIZE 8
@@ -168,9 +171,8 @@ export void bgemm_up_to_56x56(uniform uint64 C[], const uniform uint64 A[],
 //
 // But most importantly, this code is simple to undestand, debug, and easy to
 // maintain.
-export void bgemm_64x64(uniform uint64 matrixC[],
-                        const uniform uint64 matrixA[],
-                        const uniform uint64 matrixB[], uniform int N) {
+void bgemm_64x64(uniform uint64 matrixC[], const uniform uint64 matrixA[],
+                 const uniform uint64 matrixB[], uniform int N) {
   uniform uint64 sumTile[TILE_SIZE], oneAVal;
 
   for (uniform unsigned int m = 0; m < N; m++) {
@@ -199,5 +201,32 @@ export void bgemm_64x64(uniform uint64 matrixC[],
         matrixC[m * N + k0 + ki] = sumTile[ki];
       }
     }
+  }
+}
+
+export void bgemm(uniform uint64 C[], const uniform uint64 A[],
+                  const uniform uint64 B[], const uniform int N) {
+  if (N == 1) {
+    C[0] = bgemm8x8(A[0], B[0]);
+  } else if (N <= 3) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
+    }
+  } else if (N < 8) {
+    uniform uint64 A_pad[8 * 8] = {0};
+    uniform uint64 B_pad[8 * 8] = {0};
+    uniform uint64 C_pad[8 * 8] = {0};
+    foreach (i = 0 ... N) {
+      A_pad[i] = A[i];
+      B_pad[i] = B[i];
+    }
+    bgemm_64x64(C_pad, A_pad, B_pad, N);
+    foreach (i = 0 ... N) {
+      C[i] = C_pad[i];
+    }
+  } else {
+    bgemm_64x64(C, A, B, N);
   }
 }
