@@ -208,7 +208,13 @@ export void bgemm(uniform uint64 C[], const uniform uint64 A[],
                   const uniform uint64 B[], const uniform int N) {
   if (N == 1) {
     C[0] = bgemm8x8(A[0], B[0]);
-  } else if (N <= 3) {
+  } else if (N == 2) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
+    }
+  } else if (N == 3) {
     foreach (i = 0 ... N, j = 0 ... N) {
       for (uniform int k = 0; k < N; k++) {
         C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
