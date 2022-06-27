@@ -3,6 +3,8 @@ open Base_quickcheck
 module N = Native
 module V = Vectorized
 
+let sexp_of_bool = function true -> Sexp.Atom "1" | false -> Atom "0"
+
 module Bit_list = struct
   type t = bool list [@@deriving compare, quickcheck, sexp]
 end
@@ -26,16 +28,18 @@ module Bit_list_equal_len_pair = struct
 end
 
 module Bit_matrix = struct
-  type nonrec t = bool array array [@@deriving compare, quickcheck, sexp]
+  type nonrec t = bool array array [@@deriving compare, equal, quickcheck, sexp]
 
   let quickcheck_shrinker = Shrinker.atomic
+  let create = Array.map ~f:(Array.map ~f:(fun x -> x > 0))
 
   let random dim =
     Array.init dim ~f:(fun _ -> Array.init dim ~f:(fun _ -> Random.bool ()))
 
   let quickcheck_generator =
     let open Generator.Let_syntax in
-    let%bind dim = Generator.small_strictly_positive_int in
+    let%bind size = Generator.size in
+    let%bind dim = Generator.int_inclusive 1 (size + 1) in
     return (random dim)
 
   let pp fmt x =
@@ -164,38 +168,135 @@ let%test_unit "replicate" =
       v';
     assert false)
 
-let%test_unit "mul" =
+(* let%test_unit "matrix-conv" = *)
+(*   let module VM = V.Blocked_matrix in *)
+(*   Test.run_exn *)
+(*     ~f:(fun m -> *)
+(*       let expect = VM.to_matrix m in *)
+(*       let actual = VM.to_matrix @@ VM.of_matrix expect in *)
+(*       [%test_result: Bit_matrix.t] ~expect actual) *)
+(*     (module V.Blocked_matrix) *)
+
+let%test_unit "get" =
   let module VM = V.Blocked_matrix in
   Test.run_exn
     ~f:(fun m ->
-      let expect = Bit_matrix.(VM.to_matrix m * VM.to_matrix m) in
-      let actual = V.Blocked_matrix.(to_matrix O.(m * m)) in
-      [%test_result: Bit_matrix.t] ~expect actual)
-    (module V.Blocked_matrix)
+      let m' = VM.of_matrix m in
+      let n = Array.length m - 1 in
+      for i = 0 to n do
+        for j = 0 to n do
+          [%test_result: int * int * bool]
+            ~expect:(i, j, m.(i).(j))
+            (i, j, VM.get m' i j)
+        done
+      done)
+    (module Bit_matrix)
+
+module Mul_args = struct
+  type t = Bit_matrix.t * Bit_matrix.t [@@deriving compare, quickcheck, sexp]
+
+  let quickcheck_shrinker = Shrinker.atomic
+
+  let quickcheck_generator =
+    let open Generator.Let_syntax in
+    let%bind a = Bit_matrix.quickcheck_generator in
+    let b = Array.map a ~f:(Array.map ~f:(fun _ -> Random.bool ())) in
+    return (a, b)
+end
 
 let%test_unit "mul" =
   let module VM = V.Blocked_matrix in
-  let a =
+  Test.run_exn
+    ~f:(fun (a, b) ->
+      let expect = Bit_matrix.(a * b) in
+      let actual = V.Blocked_matrix.(to_matrix O.(of_matrix a * of_matrix b)) in
+      if not ([%equal: Bit_matrix.t] expect actual) then
+        Fmt.pr "%a\n%a\n%a\n%a\n" Bit_matrix.pp a Bit_matrix.pp b Bit_matrix.pp
+          expect Bit_matrix.pp actual;
+      [%test_result: Bit_matrix.t] ~expect actual)
+    (module Mul_args)
+
+let rec simple_pow a n =
+  if n = 1 then a else V.Blocked_matrix.O.(a * simple_pow a (n - 1))
+
+module Pow_args = struct
+  type t = Bit_matrix.t * int [@@deriving compare, quickcheck, sexp]
+
+  let quickcheck_shrinker = Shrinker.atomic
+
+  let quickcheck_generator =
+    let open Generator.Let_syntax in
+    let%bind b = Bit_matrix.quickcheck_generator in
+    let%bind n = Generator.int_uniform_inclusive 1 16 in
+    return (b, n)
+end
+
+let%test_unit "pow" =
+  let module VM = V.Blocked_matrix in
+  Test.run_exn
+    ~f:(fun (m, n) ->
+      let m = VM.of_matrix m in
+      let expect = simple_pow m n in
+      let actual = expect in
+      if not ([%equal: VM.t] expect actual) then
+        Fmt.pr "%a\n%a\n%a" Bit_matrix.pp (VM.to_matrix m) Bit_matrix.pp
+          (VM.to_matrix expect) Bit_matrix.pp (VM.to_matrix actual);
+
+      [%test_result: VM.t] ~expect actual)
+    (module Pow_args)
+
+let%expect_test "pow" =
+  let module VM = V.Blocked_matrix in
+  let input =
     VM.of_matrix
-      [|
-        [| false; true; false; false; false |];
-        [| false; false; true; false; false |];
-        [| false; false; false; true; false |];
-        [| false; false; false; false; false |];
-        [| false; false; false; false; false |];
-      |]
+    @@ Bit_matrix.create
+         [|
+           [| 0; 1; 0; 0 |];
+           [| 0; 0; 1; 0 |];
+           [| 0; 0; 0; 1 |];
+           [| 0; 0; 0; 0 |];
+         |]
   in
-  let b =
-    VM.of_matrix
-      [|
-        [| false; false; false; false; false |];
-        [| false; false; false; false; false |];
-        [| false; false; false; false; false |];
-        [| false; false; false; false; true |];
-        [| false; false; false; false; false |];
-      |]
-  in
-  Stdio.print_s [%message (VM.to_matrix VM.O.(a * a * b) : Bit_matrix.t)]
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix input);
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix (VM.pow input 1));
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix (VM.pow input 2));
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix (VM.pow input 3));
+  Fmt.pr "%a\n" Bit_matrix.pp (VM.to_matrix (VM.pow input 4));
+  [%expect {|
+    .█..
+    ..█.
+    ...█
+    ....
+
+    .█..
+    ..█.
+    ...█
+    ....
+
+    ..█.
+    ...█
+    ....
+    ....
+
+    ...█
+    ....
+    ....
+    ....
+
+    ....
+    ....
+    ....
+    .... |}]
+
+let%expect_test "upper-triangle" =
+  let module VM = V.Blocked_matrix in
+  Fmt.pr "%a" Bit_matrix.pp (VM.to_matrix @@ VM.upper_triangle 5);
+  [%expect {|
+    █████
+    .████
+    ..███
+    ...██
+    ....█ |}]
 
 let%expect_test "to_matrix" =
   let module VM = V.Blocked_matrix in

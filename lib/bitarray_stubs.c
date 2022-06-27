@@ -144,7 +144,9 @@ CAMLprim value bitarray_corners_stub_byte(value b1, value w, value h,
   return bitarray_corners_stub(b1, Int_val(w), Int_val(h), b2);
 }
 
-// https://stackoverflow.com/questions/14580950/fast-multiplication-of-k-x-k-boolean-matrices-where-8-k-16
+/* //
+ * https://stackoverflow.com/questions/14580950/fast-multiplication-of-k-x-k-boolean-matrices-where-8-k-16
+ */
 /* uint64_t mul8x8(uint64_t A, uint64_t B) { */
 /*   const uint64_t ROW = 0x00000000000000FF; */
 /*   const uint64_t COL = 0x0101010101010101; */
@@ -168,11 +170,19 @@ CAMLprim value bitarray_corners_stub_byte(value b1, value w, value h,
 /*   } */
 /* } */
 
+CAMLprim value bitarray_pow_stub(value a, value b, value n, value k) {
+  bpow((uint64_t *)(String_val(b)), (uint64_t *)(String_val(a)), Int_val(n),
+       Int_val(k));
+  return Val_unit;
+}
+
 CAMLprim value bitarray_mul_stub(value b1, value b2, value b3, value n) {
-  const uint64_t *p1 = (const uint64_t *)String_val(b1),
-                 *p2 = (const uint64_t *)String_val(b2);
-  uint64_t *p3 = (uint64_t *)Bytes_val(b3);
-  int int_n = Int_val(n);
-  bgemm(p3, p1, p2, int_n);
+  if (String_val(b1) == String_val(b2)) {
+    bsquare((uint64_t *)(Bytes_val(b3)), (uint64_t *)(String_val(b1)),
+            Int_val(n));
+  } else {
+    bgemm((uint64_t *)(Bytes_val(b3)), (uint64_t *)(String_val(b1)),
+          (uint64_t *)(String_val(b2)), Int_val(n));
+  }
   return Val_unit;
 }

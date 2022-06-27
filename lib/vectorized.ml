@@ -4,6 +4,10 @@ open Stubs
 
 let[@inline] ceil_div x y = (x + y - 1) / y
 let[@inline] read_bit w b = (Char.to_int w lsr b) land 1 > 0
+
+let[@inline] write_bit w b v =
+  Char.of_int_exn (Char.to_int w land lnot (1 lsl b) lor (Bool.to_int v lsl b))
+
 let bits_per_word = 8
 let bits_per_vword = 32
 
@@ -12,8 +16,7 @@ module T = struct
     type t = bool [@@deriving equal]
   end
 
-  type buf = string [@@deriving compare, hash, sexp]
-  type t = { buf : buf; len : int } [@@deriving compare, hash, sexp]
+  type t = { buf : string; len : int } [@@deriving compare, equal, hash, sexp]
 
   let fold { len; buf } ~init ~f =
     if len = 0 then init
@@ -124,9 +127,23 @@ let init_fold ~f ~init len =
     return_buf buf
 
 let get t i =
+  if i < 0 || i >= t.len then
+    raise_s [%message "index out of bounds" (i : int) (t.len : int)];
   let w = i / bits_per_word and b = i % bits_per_word in
   read_bit t.buf.[w] b
 
+let set t i v =
+  if i < 0 || i >= t.len then
+    raise_s [%message "index out of bounds" (i : int) (t.len : int)];
+  let w = i / bits_per_word and b = i % bits_per_word in
+  let buf' = Bytes.of_string t.buf in
+  Bytes.set buf' w (write_bit t.buf.[w] b v);
+  {
+    t with
+    buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf';
+  }
+
+let one_hot ~len x = set (create len false) x true
 let init ~f x = Shared.init ~init_fold ~f x
 
 let iteri x ~f =
@@ -183,9 +200,11 @@ module Blocked_matrix = struct
 
   let quickcheck_generator =
     let open Generator.Let_syntax in
-    let%bind m_dim = Generator.int_inclusive 1 8 in
+    let%bind m_bit_dim = Generator.int_inclusive 1 8 in
+    let round_bit_dim = Int.round_up ~to_multiple_of:8 m_bit_dim in
+    let m_dim = round_bit_dim / 8 in
     let%bind m_buf = Generator.string_with_length ~length:(m_dim * m_dim * 8) in
-    return { m_dim; m_buf; m_bit_dim = 8 * m_dim }
+    return { m_dim; m_buf; m_bit_dim }
 
   let create m_bit_dim v =
     let round_bit_dim = Int.round_up ~to_multiple_of:8 m_bit_dim in
@@ -212,8 +231,10 @@ module Blocked_matrix = struct
     let inner_idx = (inner_i * 8) + inner_j in
     (* index into the buffer *)
     let byte_idx = (block_idx * 8) + (inner_idx / 8) in
-    let byte = Char.to_int m.m_buf.[byte_idx] in
-    (byte lsr (inner_idx % 8)) land 0x1 > 0
+    [%test_pred: int * int]
+      (fun (idx, len) -> 0 <= idx && idx < len)
+      (byte_idx, String.length m.m_buf);
+    read_bit m.m_buf.[byte_idx] (inner_idx % 8)
 
   let set m i j v =
     let n = m.m_dim in
@@ -231,12 +252,8 @@ module Blocked_matrix = struct
     let inner_idx = (inner_i * 8) + inner_j in
     (* index into the buffer *)
     let byte_idx = (block_idx * 8) + (inner_idx / 8) in
-    let byte = Char.to_int m.m_buf.[byte_idx] in
     let bit_idx = inner_idx % 8 in
-    let v = Bool.to_int v in
-    let byte' =
-      Char.of_int_exn (byte land lnot (1 lsl bit_idx) lor (v lsl bit_idx))
-    in
+    let byte' = write_bit m.m_buf.[byte_idx] bit_idx v in
     let buf' = Bytes.of_string m.m_buf in
     Bytes.set buf' byte_idx byte';
     {
@@ -249,6 +266,15 @@ module Blocked_matrix = struct
       if i < n then set_diag (set m i i true) (i + 1) else m
     in
     set_diag (create n false) 0
+
+  let upper_triangle n =
+    let a = ref (create n false) in
+    for i = 0 to n - 1 do
+      for j = i to n - 1 do
+        a := set !a i j true
+      done
+    done;
+    !a
 
   let to_matrix a =
     let bit_dim = bit_dim a in
@@ -317,6 +343,56 @@ module Blocked_matrix = struct
         m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
       }
   end
+
+  let rec pow a n =
+    assert (n > 0);
+    if n = 1 then a
+    else if n % 2 = 1 then O.(a * pow a (n - 1))
+    else
+      let p = pow a (n / 2) in
+      O.(p * p)
+  (* let pow a n = *)
+  (*   assert (n > 0); *)
+  (*   if n = 1 then a *)
+  (*   else if n = 2 then O.(a * a) *)
+  (*   else if n = 3 then O.(a * a * a) *)
+  (*   else if n = 4 then *)
+  (*     O.( *)
+  (*       let aa = a * a in *)
+  (*       aa * aa) *)
+  (*   else *)
+  (*     let buf = Bytes.make (String.length a.m_buf) '\x00' in *)
+  (*     bitarray_pow a.m_buf buf a.m_dim n; *)
+  (*     { *)
+  (*       a with *)
+  (*       m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf; *)
+  (*     } *)
+
+  let transitive_range a l h =
+    assert (l <= h);
+    if l = h then pow a l
+    else
+      let rec loop or_acc mul_acc n =
+        if n = h then O.(or_acc lor mul_acc)
+        else loop O.(or_acc lor mul_acc) O.(mul_acc * a) (n + 1)
+      in
+      let acc = pow a l in
+      loop acc acc l
+  (* let result = Bytes.of_string (pow a l).m_buf in *)
+  (* let scratch = Bytes.make (String.length a.m_buf) '\x00' in *)
+  (* for _ = l + 1 to h do *)
+  (*   let result_s = Bytes.to_string result in *)
+  (*   bitarray_mul a.m_buf result_s scratch a.m_dim; *)
+  (*   let scratch_s = *)
+  (*     Bytes.unsafe_to_string ~no_mutation_while_string_reachable:scratch *)
+  (*   in *)
+  (*   bitarray_or result_s scratch_s result *)
+  (* done; *)
+  (* { *)
+  (*   a with *)
+  (*   m_buf = *)
+  (*     Bytes.unsafe_to_string ~no_mutation_while_string_reachable:result; *)
+  (* } *)
 
   let jaccard_distance a b =
     assert (a.m_dim = b.m_dim);

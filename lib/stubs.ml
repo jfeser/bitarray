@@ -48,3 +48,7 @@ external bitarray_hash : string -> string -> (int[@untagged])
 external bitarray_mul : string -> string -> bytes -> int -> unit
   = "bitarray_mul_stub"
   [@@noalloc]
+
+external bitarray_pow : string -> bytes -> int -> int -> unit
+  = "bitarray_pow_stub"
+  [@@noalloc]

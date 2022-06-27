@@ -15,5 +15,5 @@
  (targets bitarray.o bitarray.h libbitarray.a)
  (action
   (progn
-   (run ispc -g --pic -o bitarray.o -h bitarray.h --target avx512skx-i32x16 bitarray.ispc)
+   (run ispc -g --pic -o bitarray.o -h bitarray.h bitarray.ispc)
    (run ar -rcs libbitarray.a bitarray.o))))

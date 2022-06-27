@@ -207,7 +207,7 @@ void bgemm_64x64(uniform uint64 matrixC[], const uniform uint64 matrixA[],
 export void bgemm(uniform uint64 C[], const uniform uint64 A[],
                   const uniform uint64 B[], const uniform int N) {
   if (N == 1) {
-    C[0] = bgemm8x8(A[0], B[0]);
+    C[0] |= bgemm8x8(A[0], B[0]);
   } else if (N == 2) {
     foreach (i = 0 ... N, j = 0 ... N) {
       for (uniform int k = 0; k < N; k++) {
@@ -220,19 +220,117 @@ export void bgemm(uniform uint64 C[], const uniform uint64 A[],
         C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
       }
     }
-  } else if (N < 8) {
-    uniform uint64 A_pad[8 * 8] = {0};
-    uniform uint64 B_pad[8 * 8] = {0};
-    uniform uint64 C_pad[8 * 8] = {0};
-    foreach (i = 0 ... N) {
-      A_pad[i] = A[i];
-      B_pad[i] = B[i];
+  } else if (N == 4) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
     }
-    bgemm_64x64(C_pad, A_pad, B_pad, N);
-    foreach (i = 0 ... N) {
-      C[i] = C_pad[i];
+  } else if (N == 5) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
+    }
+  } else if (N == 6) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
+    }
+  } else if (N == 7) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
     }
   } else {
-    bgemm_64x64(C, A, B, N);
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], B[k * N + j]);
+      }
+    }
+  }
+}
+
+export void bsquare(uniform uint64 C[], const uniform uint64 A[],
+                    const uniform int N) {
+  if (N == 1) {
+    C[0] |= bgemm8x8(A[0], A[0]);
+  } else if (N == 2) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else if (N == 3) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else if (N == 4) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else if (N == 5) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else if (N == 6) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else if (N == 7) {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  } else {
+    foreach (i = 0 ... N, j = 0 ... N) {
+      for (uniform int k = 0; k < N; k++) {
+        C[i * N + j] |= bgemm8x8(A[i * N + k], A[k * N + j]);
+      }
+    }
+  }
+}
+
+export void bpow(uniform uint64 B[], uniform uint64 A[], const uniform int N,
+                 uniform int K) {
+  const uniform int32 size = sizeof(uniform uint64) * N * N;
+  assert(K > 2);
+  assert(0 <= size && size <= 2 << 13);
+  uniform uint64 *uniform C = (uniform uint64 * uniform) alloca(size);
+  uniform uint64 *uniform P = (uniform uint64 * uniform) alloca(size);
+  bool b_set = false;
+
+  memcpy(P, A, size);
+  if (K & 0x1) {
+    memcpy(B, A, size);
+    b_set = true;
+  }
+  K = K >> 1;
+
+  while (K > 0) {
+    memcpy(C, P, size);
+    bsquare(P, C, N);
+
+    if (K & 0x1) {
+      if (b_set) {
+        memcpy(C, B, size);
+        bgemm(B, C, P, N);
+      } else {
+        memcpy(B, P, size);
+        b_set = true;
+      }
+    }
+    K = K >> 1;
   }
 }

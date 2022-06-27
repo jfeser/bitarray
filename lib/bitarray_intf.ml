@@ -1,7 +1,7 @@
 open Base
 
 module type S = sig
-  type t [@@deriving compare, hash, sexp]
+  type t [@@deriving compare, equal, hash, sexp]
 
   module O : sig
     val lnot : t -> t
@@ -20,9 +20,11 @@ module type S = sig
   val length : t -> int
   val create : int -> bool -> t
   val random : int -> t
+  val one_hot : len:int -> int -> t
   val init_fold : f:('a -> int -> 'a * bool) -> init:'a -> int -> t
   val init : f:(int -> bool) -> int -> t
   val get : t -> int -> bool
+  val set : t -> int -> bool -> t
   val fold : t -> init:'a -> f:('a -> bool -> 'a) -> 'a
   val iteri : t -> f:(int -> bool -> unit) -> unit
 
@@ -54,11 +56,13 @@ module type S = sig
 
     val create : int -> bool -> t
     val identity : int -> t
+    val upper_triangle : int -> t
     val to_matrix : t -> bool array array
     val to_bitarray : t -> bitarray
     val dim : t -> int
     val get : t -> int -> int -> bool
     val set : t -> int -> int -> bool -> t
+    val pow : t -> int -> t
 
     module O : sig
       val ( * ) : t -> t -> t
@@ -69,4 +73,12 @@ module type S = sig
     end
   end
   with type bitarray := t
+
+  module Short : sig
+    type t [@@deriving compare, equal, hash, sexp]
+
+    val get : t -> int -> bool
+    val set : t -> int -> bool -> t
+    val one_hot : int -> t
+  end
 end
