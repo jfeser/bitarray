@@ -128,6 +128,8 @@ export void bitarray_corners(const uniform word_t a[], const uniform int w,
   }
 }
 
+// taken from https://stackoverflow.com/a/55307540
+// CC BY-SA 4.0
 uint64 bgemm8x8(uint64 A, uint64 B) {
   const uniform uint64 ROW = 0x00000000000000FF;
   const uniform uint64 COL = 0x0101010101010101;
