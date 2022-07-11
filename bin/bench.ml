@@ -1,55 +1,54 @@
 open! Core
 open Core_bench
 open Bitarray
-module V = Vectorized
 
 let vector_sizes = [ 64; 128; 256; 512; 1024; 2048 ]
 
 let make_unary name func =
   Bench.Test.create_indexed ~name ~args:vector_sizes (fun len ->
-      let x = V.random len in
+      let x = random len in
       Staged.stage (fun () -> func x))
 
 let make_binary name func =
   Bench.Test.create_indexed ~name ~args:vector_sizes (fun len ->
-      let x = V.random len in
-      let x' = V.random len in
+      let x = random len in
+      let x' = random len in
       Staged.stage (fun () -> func x x'))
 
-let all = make_unary "all" V.all
-let any = make_unary "any" V.any
-let lnot_ = make_unary "lnot" V.O.(lnot)
-let land_ = make_binary "land" V.O.( land )
-let lor_ = make_binary "lor" V.O.( lor )
-let lxor_ = make_binary "lxor" V.O.( lxor )
-let hamming_weight = make_unary "hamming-weight" V.hamming_weight
-let hamming_distance = make_binary "hamming-distance" V.hamming_distance
-let jaccard_distance = make_binary "jaccard-distance" V.jaccard_distance
+let all = make_unary "all" all
+let any = make_unary "any" any
+let lnot_ = make_unary "lnot" O.(lnot)
+let land_ = make_binary "land" O.( land )
+let lor_ = make_binary "lor" O.( lor )
+let lxor_ = make_binary "lxor" O.( lxor )
+let hamming_weight = make_unary "hamming-weight" hamming_weight
+let hamming_distance = make_binary "hamming-distance" hamming_distance
+let jaccard_distance = make_binary "jaccard-distance" jaccard_distance
 
 let get =
   Bench.Test.create_indexed ~name:"get" ~args:vector_sizes (fun len ->
-      let x = V.random len in
+      let x = random len in
       let i = Random.int len in
-      Staged.stage (fun () -> V.get x i))
+      Staged.stage (fun () -> get x i))
 
 let fold =
   Bench.Test.create_indexed ~name:"fold" ~args:vector_sizes (fun len ->
-      let x = V.random len in
-      Staged.stage (fun () -> V.fold ~init:() ~f:(fun _ _ -> ()) x))
+      let x = random len in
+      Staged.stage (fun () -> fold ~init:() ~f:(fun _ _ -> ()) x))
 
 let replicate =
   Bench.Test.create_with_initialization ~name:"replicate" (fun `init ->
-      let x = V.random 256 in
+      let x = random 256 in
       let dx = Random.int_incl (-5) 5 in
       let dy = Random.int_incl (-5) 5 in
       let ct = Random.int_incl 1 5 in
-      fun () -> V.replicate ~w:16 ~h:16 ~dx ~dy ~ct x)
+      fun () -> replicate ~w:16 ~h:16 ~dx ~dy ~ct x)
 
 let mul =
   Bench.Test.create_indexed ~name:"mul"
     ~args:[ 1; 2; 3; 4; 5; 6; 7; 8 (* 9; 10 *) ] (fun n_blocks ->
-      let x = V.Blocked_matrix.create (8 * n_blocks) false in
-      Staged.stage (fun () -> V.Blocked_matrix.O.(x * x)))
+      let x = Blocked_matrix.create (8 * n_blocks) false in
+      Staged.stage (fun () -> Blocked_matrix.O.(x * x)))
 
 let () =
   Random.self_init ();

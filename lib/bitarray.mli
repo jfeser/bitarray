@@ -24,6 +24,7 @@ val init_fold : f:('a -> int -> 'a * bool) -> init:'a -> int -> t
 val init : f:(int -> bool) -> int -> t
 val get : t -> int -> bool
 val set : t -> int -> bool -> t
+val set_many : t -> ((int * bool -> unit) -> unit) -> t
 val fold : t -> init:'a -> f:('a -> bool -> 'a) -> 'a
 val iteri : t -> f:(int -> bool -> unit) -> unit
 

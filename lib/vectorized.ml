@@ -143,6 +143,29 @@ let set t i v =
     buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf';
   }
 
+let set_many t xs =
+  let ret = ref None in
+  xs (fun (i, v) ->
+      if i < 0 || i >= t.len then
+        raise_s [%message "index out of bounds" (i : int) (t.len : int)];
+      let w = i / bits_per_word and b = i % bits_per_word in
+      let buf =
+        match !ret with
+        | None ->
+            let b = Bytes.of_string t.buf in
+            ret := Some b;
+            b
+        | Some b -> b
+      in
+      Bytes.set buf w (write_bit (Bytes.get buf w) b v));
+  match !ret with
+  | None -> t
+  | Some buf ->
+      {
+        t with
+        buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf;
+      }
+
 let one_hot ~len x = set (create len false) x true
 let init ~f x = Shared.init ~init_fold ~f x
 
