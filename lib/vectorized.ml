@@ -241,10 +241,15 @@ module Blocked_matrix = struct
   let[@inline] n_bits m = m.m_dim * 64
   let[@inline] bit_dim m = m.m_bit_dim
 
+  let check_bounds m i j =
+    let dim = bit_dim m in
+    if i < 0 || i >= dim || j < 0 || j >= dim then
+      raise_s
+        [%message "matrix index out of bounds" (i : int) (j : int) (dim : int)]
+
   let get m i j =
+    check_bounds m i j;
     let n = m.m_dim in
-    let bit_dim = bit_dim m in
-    assert (0 <= i && i < bit_dim && 0 <= j && j < bit_dim);
     (* coordinates of the block and inside the block *)
     let block_i = i / 8 and block_j = j / 8 in
     let inner_i = i % 8 and inner_j = j % 8 in
@@ -254,18 +259,11 @@ module Blocked_matrix = struct
     let inner_idx = (inner_i * 8) + inner_j in
     (* index into the buffer *)
     let byte_idx = (block_idx * 8) + (inner_idx / 8) in
-    [%test_pred: int * int]
-      (fun (idx, len) -> 0 <= idx && idx < len)
-      (byte_idx, String.length m.m_buf);
     read_bit m.m_buf.[byte_idx] (inner_idx % 8)
 
   let set m i j v =
+    check_bounds m i j;
     let n = m.m_dim in
-    let bit_dim = bit_dim m in
-    if i < 0 || i >= bit_dim || j < 0 || j >= bit_dim then
-      raise_s
-        [%message
-          "matrix index out of bounds" (i : int) (j : int) (bit_dim : int)];
     (* coordinates of the block and inside the block *)
     let block_i = i / 8 and block_j = j / 8 in
     let inner_i = i % 8 and inner_j = j % 8 in
@@ -368,7 +366,7 @@ module Blocked_matrix = struct
   end
 
   let rec pow a n =
-    assert (n > 0);
+    if n <= 0 then raise_s [%message "expected positive" (n : int)];
     if n = 1 then a
     else if n % 2 = 1 then O.(a * pow a (n - 1))
     else
