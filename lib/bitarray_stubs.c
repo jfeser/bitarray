@@ -10,25 +10,40 @@ typedef int32_t word_t;
 
 #define len(s) (caml_string_length(s) / (sizeof(word_t)))
 
-CAMLprim value bitarray_and_stub(value b1, value b2, value b3) {
-  const word_t *p1 = (const word_t *)String_val(b1),
-               *p2 = (const word_t *)String_val(b2);
-  word_t *p3 = (word_t *)Bytes_val(b3);
+// see
+// https://stackoverflow.com/questions/12416639/how-to-create-mask-with-least-significat-bits-set-to-1-in-c
+uint32_t gen_mask(const uint_fast8_t msb) {
+  const uint32_t src = (uint32_t)1 << msb;
+  return (src - 1) ^ src;
+}
 
-  for (int i = 0; i < len(b1); i++) {
-    p3[i] = p1[i] & p2[i];
+CAMLprim value bitarray_and_stub(value b1, value b2, value b3) {
+  word_t *p1 = (word_t *)String_val(b1), *p2 = (word_t *)String_val(b2),
+         *p3 = (word_t *)Bytes_val(b3);
+  int l = len(b1);
+  if (l < 16) {
+    for (int i = 0; i < len(b1); i++) {
+      p3[i] = p1[i] & p2[i];
+    }
+  } else {
+    bitarray_and(p1, p2, p3, len(b1));
   }
+
   return Val_unit;
 }
 
 CAMLprim value bitarray_or_stub(value b1, value b2, value b3) {
-  const word_t *p1 = (const word_t *)String_val(b1),
-               *p2 = (const word_t *)String_val(b2);
-  word_t *p3 = (word_t *)Bytes_val(b3);
-
-  for (int i = 0; i < len(b1); i++) {
-    p3[i] = p1[i] | p2[i];
+  word_t *p1 = (word_t *)String_val(b1), *p2 = (word_t *)String_val(b2),
+         *p3 = (word_t *)Bytes_val(b3);
+  int l = len(b1);
+  if (l < 16) {
+    for (int i = 0; i < len(b1); i++) {
+      p3[i] = p1[i] | p2[i];
+    }
+  } else {
+    bitarray_or(p1, p2, p3, len(b1));
   }
+
   return Val_unit;
 }
 
@@ -47,17 +62,43 @@ CAMLprim value bitarray_any_stub(value b) {
   return Val_bool(bitarray_any((word_t *)(String_val(b)), len(b)));
 }
 
-CAMLprim value bitarray_all_stub(value b) {
-  return Val_bool(bitarray_all((word_t *)(String_val(b)), len(b)));
+CAMLprim value bitarray_all_stub(value b, value nbits_ml) {
+  int nbits = Int_val(nbits_ml);
+  if (nbits == 0) {
+    return Val_true;
+  }
+
+  int l = len(b);
+  word_t *buf = (word_t *)(String_val(b));
+
+  if (nbits % 32 == 0) {
+    return Val_bool(bitarray_all(buf, l));
+  }
+
+  // create a mask of the lower nbits % 32 bits in the last word (the trailing
+  // bits)
+  uint32_t mask = gen_mask((nbits % 32) - 1);
+  // check that all of the lower bits are set
+  if (buf[l - 1] != mask) {
+    return Val_false;
+  }
+
+  return Val_bool(bitarray_all(buf, l - 1));
 }
 
-CAMLprim value bitarray_not_stub(value b1, value b2) {
-  const word_t *p1 = (const word_t *)String_val(b1);
-  word_t *p2 = (word_t *)Bytes_val(b2);
+CAMLprim value bitarray_not_stub(value b1, value b2, value nbits_ml) {
+  int nbits = Int_val(nbits_ml);
+  if (nbits == 0) {
+    return Val_true;
+  }
 
-  for (int i = 0; i < len(b1); i++) {
+  word_t *p1 = (word_t *)String_val(b1), *p2 = (word_t *)Bytes_val(b2);
+  int l = len(b1);
+
+  for (int i = 0; i < l - 1; i++) {
     p2[i] = ~p1[i];
   }
+  p2[l - 1] = (~p1[l - 1]) & gen_mask((nbits % 32) - 1);
   return Val_unit;
 }
 

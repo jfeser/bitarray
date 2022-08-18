@@ -1,23 +1,34 @@
-typedef int32 word_t;
-
-export uniform bool bitarray_any(uniform word_t a[], uniform int len) {
+export uniform bool bitarray_any(uniform int32 a[], uniform int len) {
   bool part = false;
   foreach (i = 0 ... len) {
-    part |= popcnt((int32)a[i]) > 0;
+    part |= a[i] != 0;
   }
   return any(part);
 }
 
-export uniform bool bitarray_all(uniform word_t a[], uniform int len) {
+export uniform bool bitarray_all(uniform int32 a[], uniform int len) {
   bool part = true;
   foreach (i = 0 ... len) {
-    part &= popcnt((int32)a[i]) > 0;
+    part &= (~a[i] == 0);
   }
   return all(part);
 }
 
-export uniform int bitarray_hamming_weight(uniform word_t a[],
-                                           uniform int len) {
+export void bitarray_and(uniform int32 a[], uniform int32 b[],
+                         uniform int32 c[], uniform int len) {
+  foreach (i = 0 ... len) {
+    c[i] = a[i] & b[i];
+  }
+}
+
+export void bitarray_or(uniform int32 a[], uniform int32 b[], uniform int32 c[],
+                        uniform int len) {
+  foreach (i = 0 ... len) {
+    c[i] = a[i] | b[i];
+  }
+}
+
+export uniform int bitarray_hamming_weight(uniform int32 a[], uniform int len) {
   uniform int part = 0;
   for (uniform int i = 0; i < len; i++) {
     part += popcnt(a[i]);
@@ -25,7 +36,7 @@ export uniform int bitarray_hamming_weight(uniform word_t a[],
   return part;
 }
 
-inline bool read_bit(const uniform word_t x[], const int b,
+inline bool read_bit(const uniform int32 x[], const int b,
                      const uniform int len) {
   int i = b >> 5;       // div by word_size = 32
   int j = b & (32 - 1); // mod by word size
@@ -36,15 +47,15 @@ inline int offset(int x, int y, uniform int w, uniform int h) {
   return ((h - 1 - y) * w) + x;
 }
 
-export void bitarray_replicate(const uniform word_t a[], const uniform int dx,
+export void bitarray_replicate(const uniform int32 a[], const uniform int dx,
                                const uniform int dy, const uniform int ct,
                                const uniform int w, const uniform int h,
-                               uniform word_t r[], const uniform int len) {
+                               uniform int32 r[], const uniform int len) {
   foreach (word_idx = 0 ... len) {
     int start_bit = 32 * word_idx;
     int x = start_bit % w;
     int y = h - 1 - (start_bit / w);
-    word_t word = a[word_idx];
+    int32 word = a[word_idx];
     for (uniform int b = 0; b < 32; b++) {
       bool bit = false;
       int xx = x;
@@ -64,9 +75,9 @@ export void bitarray_replicate(const uniform word_t a[], const uniform int dx,
 }
 
 // TODO: wrapping translation
-export void bitarray_translate(const uniform word_t a[], const uniform int dx,
+export void bitarray_translate(const uniform int32 a[], const uniform int dx,
                                const uniform int dy, const uniform int w,
-                               const uniform int h, uniform word_t r[],
+                               const uniform int h, uniform int32 r[],
                                const uniform int len) {
   foreach (word_idx = 0 ... len) {
     int start_bit = 32 * word_idx;
@@ -83,8 +94,8 @@ export void bitarray_translate(const uniform word_t a[], const uniform int dx,
     int read_word1 = read_word_bit / 32;
     int read_word2 = read_word1 + 1;
 
-    word_t w1 = (read_word1 >= 0 && read_word1 < len) ? a[read_word1] : 0;
-    word_t w2 = (read_word2 >= 0 && read_word2 < len) ? a[read_word2] : 0;
+    int32 w1 = (read_word1 >= 0 && read_word1 < len) ? a[read_word1] : 0;
+    int32 w2 = (read_word2 >= 0 && read_word2 < len) ? a[read_word2] : 0;
 
     int k = read_word_bit % 32;
     // take the low k bits of w1 and the high 32-k bits of w2
@@ -92,15 +103,15 @@ export void bitarray_translate(const uniform word_t a[], const uniform int dx,
   }
 }
 
-export void bitarray_corners(const uniform word_t a[], const uniform int w,
-                             const uniform int h, uniform word_t r[],
+export void bitarray_corners(const uniform int32 a[], const uniform int w,
+                             const uniform int h, uniform int32 r[],
                              const uniform int len) {
   foreach (word_idx = 0 ... len) {
     int start_bit = 32 * word_idx;
     int x = start_bit % w;
     int y = h - 1 - (start_bit / w);
 
-    word_t word = 0;
+    int32 word = 0;
     for (uniform int b = 0; b < 32; b++) {
       int offset = start_bit + b;
       bool b1 = read_bit(a, offset - w - 1, len);

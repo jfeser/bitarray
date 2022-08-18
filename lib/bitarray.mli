@@ -13,6 +13,7 @@ val bits_per_word : int
 val nwords : int -> int
 val any : t -> bool
 val all : t -> bool
+val is_subset : t -> of_:t -> bool
 
 (** Container functions. *)
 
@@ -24,7 +25,6 @@ val init_fold : f:('a -> int -> 'a * bool) -> init:'a -> int -> t
 val init : f:(int -> bool) -> int -> t
 val get : t -> int -> bool
 val set : t -> int -> bool -> t
-val set_many : t -> ((int * bool -> unit) -> unit) -> t
 val fold : t -> init:'a -> f:('a -> bool -> 'a) -> 'a
 val iteri : t -> f:(int -> bool -> unit) -> unit
 
@@ -36,6 +36,11 @@ val of_list : bool list -> t
 (** Array conversion *)
 
 val to_array : t -> bool array
+
+(** String conversion *)
+
+val to_string : t -> string
+val of_string : int -> string -> t
 
 (** Distance functions. *)
 
@@ -50,13 +55,15 @@ val pp_bitmap : w:int -> Formatter.t -> t -> unit
 val replicate : w:int -> h:int -> t -> dx:int -> dy:int -> ct:int -> t
 val corners : w:int -> h:int -> t -> t
 
+(** Boolean matrices represented using 8x8 bit blocks. *)
 module Blocked_matrix : sig
   type bitarray
-  type t [@@deriving compare, equal, hash, sexp, quickcheck]
+  type t [@@deriving compare, equal, hash, sexp]
 
   val create : int -> bool -> t
   val identity : int -> t
   val upper_triangle : int -> t
+  val of_matrix : bool array array -> t
   val to_matrix : t -> bool array array
   val to_bitarray : t -> bitarray
   val dim : t -> int
@@ -64,6 +71,7 @@ module Blocked_matrix : sig
   val set : t -> int -> int -> bool -> t
   val pow : t -> int -> t
   val transitive_range : t -> int -> int -> t
+  val iter : t -> (int * int * bool -> unit) -> unit
 
   module O : sig
     val ( * ) : t -> t -> t
@@ -72,11 +80,16 @@ module Blocked_matrix : sig
     val ( lor ) : t -> t -> t
     val ( lxor ) : t -> t -> t
   end
+
+  module Private : sig
+    val unsafe_create : string -> int -> int -> t
+  end
 end
 with type bitarray := t
 
+(** Short bitvectors (57 bits on 64 bit platforms) that are packed into integers. *)
 module Short : sig
-  type t [@@deriving compare, equal, hash, sexp]
+  type t [@@immediate] [@@deriving compare, equal, hash, sexp]
 
   module O : sig
     val ( land ) : t -> t -> t

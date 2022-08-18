@@ -8,9 +8,9 @@ external bitarray_xor : string -> string -> bytes -> unit = "bitarray_xor_stub"
   [@@noalloc]
 
 external bitarray_any : string -> bool = "bitarray_any_stub" [@@noalloc]
-external bitarray_all : string -> bool = "bitarray_any_stub" [@@noalloc]
+external bitarray_all : string -> int -> bool = "bitarray_all_stub" [@@noalloc]
 
-external bitarray_not : string -> bytes -> unit = "bitarray_not_stub"
+external bitarray_not : string -> bytes -> int -> unit = "bitarray_not_stub"
   [@@noalloc]
 
 external bitarray_hamming_weight : string -> (int[@untagged])
