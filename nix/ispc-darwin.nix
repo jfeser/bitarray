@@ -1,5 +1,5 @@
-{ stdenv, fetchFromGithub, cmake, which, m4, bison, flex, python3, llvmPackages
-, ... }:
+{ stdenv, fetchFromGitHub, cmake, which, m4, bison, flex, python3, llvmPackages
+, ncurses }:
 stdenv.mkDerivation rec {
   pname = "ispc";
   version = "1.18.0";

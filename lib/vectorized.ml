@@ -44,6 +44,7 @@ end
 module C = Container.Make0 (T)
 include T
 
+let empty = { len = 0; buf = "" }
 let fold = C.fold
 let iter = C.iter
 let length = C.length
@@ -160,10 +161,11 @@ let one_hot ~len x = set (create len false) x true
 let init ~f len = init_fold ~f:(fun () i -> ((), f i)) ~init:() len
 let of_array x = init (Array.length x) ~f:(Array.get x)
 let of_list x = of_array @@ List.to_array x
+let iter x f = iter x ~f
 
 let iteri x ~f =
   let i = ref 0 in
-  iter x ~f:(fun x ->
+  iter x (fun x ->
       f !i x;
       Int.incr i)
 

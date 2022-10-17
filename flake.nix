@@ -8,9 +8,10 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         ispc = if system == "aarch64-darwin" then
-          (import ./nix/ispc-darwin.nix) pkgs
+          pkgs.callPackage ./nix/ispc-darwin.nix { }
         else
           pkgs.ispc;
+
         ocamlPkgs = pkgs.ocaml-ng.ocamlPackages_4_14;
         defaultPackage = ocamlPkgs.buildDunePackage rec {
           pname = "bitarray";

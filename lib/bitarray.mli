@@ -1,4 +1,5 @@
 open Base
+open Base_quickcheck
 
 type t [@@deriving compare, equal, hash, sexp]
 
@@ -14,6 +15,7 @@ val nwords : int -> int
 val any : t -> bool
 val all : t -> bool
 val is_subset : t -> of_:t -> bool
+val empty : t
 
 (** Container functions. *)
 
@@ -26,6 +28,7 @@ val init : f:(int -> bool) -> int -> t
 val get : t -> int -> bool
 val set : t -> int -> bool -> t
 val fold : t -> init:'a -> f:('a -> bool -> 'a) -> 'a
+val iter : t -> (bool -> unit) -> unit
 val iteri : t -> f:(int -> bool -> unit) -> unit
 
 (** List conversion *)
@@ -58,9 +61,10 @@ val corners : w:int -> h:int -> t -> t
 (** Boolean matrices represented using 8x8 bit blocks. *)
 module Blocked_matrix : sig
   type bitarray
-  type t [@@deriving compare, equal, hash, sexp]
+  type t [@@deriving compare, equal, hash, sexp, quickcheck]
 
   val create : int -> bool -> t
+  val pp : Formatter.t -> t -> unit
   val identity : int -> t
   val upper_triangle : int -> t
   val of_matrix : bool array array -> t
@@ -72,6 +76,10 @@ module Blocked_matrix : sig
   val pow : t -> int -> t
   val transitive_range : t -> int -> int -> t
   val iter : t -> (int * int * bool -> unit) -> unit
+
+  (** Quickcheck functions *)
+
+  val quickcheck_generator_with_dim : int -> t Generator.t
 
   module O : sig
     val ( * ) : t -> t -> t

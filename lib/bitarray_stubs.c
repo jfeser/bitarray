@@ -185,32 +185,6 @@ CAMLprim value bitarray_corners_stub_byte(value b1, value w, value h,
   return bitarray_corners_stub(b1, Int_val(w), Int_val(h), b2);
 }
 
-/* //
- * https://stackoverflow.com/questions/14580950/fast-multiplication-of-k-x-k-boolean-matrices-where-8-k-16
- */
-/* uint64_t mul8x8(uint64_t A, uint64_t B) { */
-/*   const uint64_t ROW = 0x00000000000000FF; */
-/*   const uint64_t COL = 0x0101010101010101; */
-/*   uint64_t C = 0; */
-/*   for (int i = 0; i < 8; ++i) { */
-/*     uint64_t p = COL & (A >> i); */
-/*     uint64_t r = ROW & (B >> i * 8); */
-/*     C |= (p * r); // use ^ for GF(2) instead */
-/*   } */
-/*   return C; */
-/* } */
-
-/* void mul(uint64_t C[], const uint64_t A[], const uint64_t B[], const size_t
- * n) { */
-/*   for (int i = 0; i < n; ++i) { */
-/*     for (int j = 0; j < n; ++j) { */
-/*       for (int k = 0; k < n; ++k) { */
-/*         C[i + n * j] |= mul8x8(A[i + n * k], B[k + n * j]); */
-/*       } */
-/*     } */
-/*   } */
-/* } */
-
 CAMLprim value bitarray_pow_stub(value a, value b, value n, value k) {
   bpow((uint64_t *)(String_val(b)), (uint64_t *)(String_val(a)), Int_val(n),
        Int_val(k));

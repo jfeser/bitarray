@@ -1,13 +1,29 @@
 open Base
+open Base_quickcheck
 open Vectorized
 open Stubs
 
 type nonrec t = { m_buf : string; m_dim : int; m_bit_dim : int }
-[@@deriving compare, equal, hash, sexp]
+[@@deriving compare, equal, hash, sexp, quickcheck]
 
 module Private = struct
   let unsafe_create m_buf m_dim m_bit_dim = { m_buf; m_dim; m_bit_dim }
 end
+
+let quickcheck_shrinker = Shrinker.atomic
+
+let quickcheck_generator_with_dim m_bit_dim =
+  let open Generator.Let_syntax in
+  let round_bit_dim = Int.round_up ~to_multiple_of:8 m_bit_dim in
+  let m_dim = round_bit_dim / 8 in
+  let%bind m_buf = Generator.string_with_length ~length:(m_dim * m_dim * 8) in
+  return (Private.unsafe_create m_buf m_dim m_bit_dim)
+
+let quickcheck_generator =
+  let open Generator.Let_syntax in
+  let%bind max_bit_dim = Generator.size in
+  let%bind m_bit_dim = Generator.int_uniform_inclusive 0 max_bit_dim in
+  quickcheck_generator_with_dim m_bit_dim
 
 let create m_bit_dim v =
   let round_bit_dim = Int.round_up ~to_multiple_of:8 m_bit_dim in
@@ -61,6 +77,18 @@ let set m i j v =
     m with
     m_buf = Bytes.unsafe_to_string ~no_mutation_while_string_reachable:buf';
   }
+
+let pp fmt x =
+  let pf = Caml.Format.fprintf fmt in
+  pf "@[<v>";
+  let n = dim x in
+  for j = n - 1 downto 0 do
+    for i = 0 to n - 1 do
+      if get x i j then pf "█" else pf "."
+    done;
+    pf "@,"
+  done;
+  pf "@]"
 
 let iter x f =
   for i = 0 to dim x - 1 do
@@ -153,7 +181,8 @@ module O = struct
 end
 
 let rec pow a n =
-  if n <= 0 then raise_s [%message "expected positive" (n : int)];
+  if n <= 0 then
+    raise_s [%message "Blocked_matrix.pow: expected positive" (n : int)];
   if n = 1 then a
   else if n % 2 = 1 then O.(a * pow a (n - 1))
   else
