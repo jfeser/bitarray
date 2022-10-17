@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, flake-utils, nixpkgs }@inputs:
@@ -12,12 +12,12 @@
         else
           pkgs.ispc;
 
-        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages_4_14;
+        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages;
         defaultPackage = ocamlPkgs.buildDunePackage rec {
           pname = "bitarray";
           version = "0.1";
           useDune3 = true;
-          minimalOCamlVersion = "4.14";
+          minimalOCamlVersion = "4.13";
           nativeBuildInputs = [
             ocamlPkgs.base_quickcheck
             ocamlPkgs.core
