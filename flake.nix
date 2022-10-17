@@ -4,9 +4,13 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, flake-utils, nixpkgs }@inputs:
-    flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        ispc = if system == "aarch64-darwin" then
+          (import ./nix/ispc-darwin.nix) pkgs
+        else
+          pkgs.ispc;
         ocamlPkgs = pkgs.ocaml-ng.ocamlPackages_4_14;
         defaultPackage = ocamlPkgs.buildDunePackage rec {
           pname = "bitarray";
@@ -17,11 +21,13 @@
             ocamlPkgs.base_quickcheck
             ocamlPkgs.core
             ocamlPkgs.core_bench
-            pkgs.ispc
+            pkgs.gcc
+            ispc
           ];
           propagatedBuildInputs = [ ocamlPkgs.base ocamlPkgs.fmt ];
           src = ./.;
         };
+
       in {
         defaultPackage = defaultPackage;
         devShell = pkgs.mkShell {
