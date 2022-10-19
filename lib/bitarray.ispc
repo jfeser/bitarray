@@ -40,6 +40,7 @@ inline bool read_bit(const uniform int32 x[], const int b,
                      const uniform int len) {
   int i = b >> 5;       // div by word_size = 32
   int j = b & (32 - 1); // mod by word size
+  /* return ((x[i] & (1 << j))); */
   return ((x[i] >> j) & 1);
 }
 
