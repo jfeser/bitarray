@@ -1,6 +1,6 @@
 (library
  (public_name bitarray)
- (libraries base)
+ (libraries base fmt)
  (foreign_stubs
   (language c)
   (names bitarray_stubs)

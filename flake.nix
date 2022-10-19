@@ -1,27 +1,34 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, flake-utils, nixpkgs }@inputs:
-    flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages_4_14;
+        ispc = if system == "aarch64-darwin" then
+          pkgs.callPackage ./nix/ispc-darwin.nix { }
+        else
+          pkgs.ispc;
+
+        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages;
         defaultPackage = ocamlPkgs.buildDunePackage rec {
           pname = "bitarray";
           version = "0.1";
           useDune3 = true;
-          minimalOCamlVersion = "4.14";
+          minimalOCamlVersion = "4.13";
           nativeBuildInputs = [
             ocamlPkgs.base_quickcheck
             ocamlPkgs.core
             ocamlPkgs.core_bench
-            pkgs.ispc
+            pkgs.gcc
+            ispc
           ];
           propagatedBuildInputs = [ ocamlPkgs.base ocamlPkgs.fmt ];
           src = ./.;
         };
+
       in {
         defaultPackage = defaultPackage;
         devShell = pkgs.mkShell {
