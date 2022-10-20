@@ -111,15 +111,8 @@ CAMLprim value bitarray_hamming_weight_stub_byte(value b) {
 }
 
 CAMLprim intnat bitarray_hamming_distance_stub(value b1, value b2) {
-  const word_t *p1 = (const word_t *)String_val(b1),
-               *p2 = (const word_t *)String_val(b2);
-  int count = 0;
-
-#pragma GCC unroll 8
-  for (int i = 0; i < len(b1); i++) {
-    count += __builtin_popcount(p1[i] ^ p2[i]);
-  }
-  return count;
+  return bitarray_hamming_distance((word_t *)(String_val(b1)),
+                                   (word_t *)(String_val(b2)), len(b1));
 }
 
 CAMLprim value bitarray_hamming_distance_stub_byte(value b1, value b2) {
@@ -127,19 +120,8 @@ CAMLprim value bitarray_hamming_distance_stub_byte(value b1, value b2) {
 }
 
 CAMLprim double bitarray_jaccard_stub(value b1, value b2) {
-  const word_t *p1 = (const word_t *)String_val(b1),
-               *p2 = (const word_t *)String_val(b2);
-  int union_ = 0, inter = 0, len = len(b1);
-
-  if (len == 0) {
-    return 0.;
-  }
-  for (int i = 0; i < len; i++) {
-    union_ += __builtin_popcount(p1[i] | p2[i]);
-    inter += __builtin_popcount(p1[i] & p2[i]);
-  }
-
-  return union_ == 0 ? 0.0 : 1.0 - ((double)inter / (double)union_);
+  return bitarray_jaccard_distance((word_t *)(String_val(b1)),
+                                   (word_t *)(String_val(b2)), len(b1));
 }
 
 CAMLprim value bitarray_jaccard_stub_byte(value b1, value b2) {

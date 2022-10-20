@@ -29,12 +29,53 @@ export void bitarray_or(uniform int32 a[], uniform int32 b[], uniform int32 c[],
 }
 
 export uniform int bitarray_hamming_weight(uniform int32 a[], uniform int len) {
+  /* uniform int part = 0; */
+  /* for (uniform int i = 0; i < len; i++) { */
+  /*   part += popcnt(a[i]); */
+  /* } */
+  /* return part; */
+
+  int part = 0;
+  foreach (i = 0 ... len) {
+    part += popcnt(a[i]);
+  }
+  return reduce_add(part);
+}
+
+export uniform int bitarray_hamming_distance(uniform int32 a[],
+                                             uniform int32 b[],
+                                             uniform int len) {
   uniform int part = 0;
   for (uniform int i = 0; i < len; i++) {
-    part += popcnt(a[i]);
+    part += popcnt(a[i] ^ b[i]);
   }
   return part;
 }
+
+export uniform double bitarray_jaccard_distance(uniform int32 a[],
+                                                uniform int32 b[],
+                                                uniform int len) {
+  if (len == 0) {
+    return 0.;
+  }
+  uniform int inter = 0;
+  uniform int union_ = 0;
+  for (uniform int i = 0; i < len; i++) {
+    union_ += popcnt(a[i] | b[i]);
+    inter += popcnt(a[i] & b[i]);
+  }
+  return union_ == 0 ? 0.0 : 1.0 - ((double)inter / (double)union_);
+}
+
+/* export uniform double bitarray_hash(uniform int32 a[], uniform int len) { */
+/*   uniform int inter = 0; */
+/*   uniform int union_ = 0; */
+/*   for (uniform int i = 0; i < len; i++) { */
+/*     union_ += popcnt(a[i] | b[i]); */
+/*     inter += popcnt(a[i] & b[i]); */
+/*   } */
+/*   return union_ == 0 ? 0.0 : 1.0 - ((double)inter / (double)union_); */
+/* } */
 
 inline bool read_bit(const uniform int32 x[], const int b,
                      const uniform int len) {
