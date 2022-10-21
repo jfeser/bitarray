@@ -28,18 +28,15 @@ export void bitarray_or(uniform int32 a[], uniform int32 b[], uniform int32 c[],
   }
 }
 
+/** These functions are faster without parallelism. Benchmark before changing.
+    --------------------------------------------------------------------------
+ */
 export uniform int bitarray_hamming_weight(uniform int32 a[], uniform int len) {
-  /* uniform int part = 0; */
-  /* for (uniform int i = 0; i < len; i++) { */
-  /*   part += popcnt(a[i]); */
-  /* } */
-  /* return part; */
-
-  int part = 0;
-  foreach (i = 0 ... len) {
+  uniform int part = 0;
+  for (uniform int i = 0; i < len; i++) {
     part += popcnt(a[i]);
   }
-  return reduce_add(part);
+  return part;
 }
 
 export uniform int bitarray_hamming_distance(uniform int32 a[],
@@ -66,16 +63,23 @@ export uniform double bitarray_jaccard_distance(uniform int32 a[],
   }
   return union_ == 0 ? 0.0 : 1.0 - ((double)inter / (double)union_);
 }
+/** --------------------------------------------------------------------------
+ */
 
-/* export uniform double bitarray_hash(uniform int32 a[], uniform int len) { */
-/*   uniform int inter = 0; */
-/*   uniform int union_ = 0; */
-/*   for (uniform int i = 0; i < len; i++) { */
-/*     union_ += popcnt(a[i] | b[i]); */
-/*     inter += popcnt(a[i] & b[i]); */
-/*   } */
-/*   return union_ == 0 ? 0.0 : 1.0 - ((double)inter / (double)union_); */
-/* } */
+export uniform int bitarray_hash(uniform int8 a[], uniform int len) {
+  int64 hash = 5381;
+  foreach (i = 0 ... len) {
+    hash = ((hash << 5) + hash) + a[i];
+  }
+
+  uniform int hashes[TARGET_WIDTH];
+  hashes[programIndex] = hash;
+  uniform int ret = 5381;
+  for (uniform int i = 0; i < TARGET_WIDTH; i++) {
+    ret = ((ret << 5) + ret) + hashes[i];
+  }
+  return ret;
+}
 
 inline bool read_bit(const uniform int32 x[], const int b,
                      const uniform int len) {

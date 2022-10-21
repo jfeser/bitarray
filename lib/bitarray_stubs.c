@@ -142,18 +142,12 @@ CAMLprim value bitarray_replicate_stub_byte(value b1, value x, value y,
                                  Int_val(w), Int_val(h), b2);
 }
 
-CAMLprim intnat bitarray_hash_stub(value d, value k) {
-  int *dd = (int *)d;
-  int *kk = (int *)k;
-  long sum = 0;
-  for (int i = 0; i < len(d); i += 2) {
-    sum += (long)(dd[i] + kk[i]) * (long)(dd[i + 1] + kk[i + 1]);
-  }
-  return sum;
+CAMLprim intnat bitarray_hash_stub(value b) {
+  return bitarray_hash((word_t *)(String_val(b)), len(b));
 }
 
-CAMLprim value bitarray_hash_stub_byte(value d, value k) {
-  return Val_int(bitarray_hash_stub(d, k));
+CAMLprim value bitarray_hash_stub_byte(value b) {
+  return Val_int(bitarray_hash_stub(b));
 }
 
 CAMLprim value bitarray_corners_stub(value b1, intnat w, intnat h, value b2) {

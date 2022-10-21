@@ -3,6 +3,8 @@ open Base_quickcheck
 
 type t [@@deriving compare, equal, hash, sexp]
 
+val hash_vec : t -> int
+
 module O : sig
   val lnot : t -> t
   val ( lxor ) : t -> t -> t

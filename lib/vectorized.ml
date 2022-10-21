@@ -211,3 +211,5 @@ let pp_bitmap ~w fmt x =
   iteri x ~f:(fun i b ->
       if b then fprintf fmt "█" else fprintf fmt ".";
       if i % w = w - 1 then fprintf fmt "\n")
+
+let hash_vec a = bitarray_hash a.buf

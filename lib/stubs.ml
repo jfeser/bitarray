@@ -41,7 +41,7 @@ external bitarray_corners :
   = "bitarray_corners_stub_byte" "bitarray_corners_stub"
   [@@noalloc]
 
-external bitarray_hash : string -> string -> (int[@untagged])
+external bitarray_hash : string -> (int[@untagged])
   = "bitarray_hash_stub_byte" "bitarray_hash_stub"
   [@@noalloc]
 

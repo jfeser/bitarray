@@ -16,6 +16,8 @@ let make_binary name func =
       Staged.stage (fun () -> func x x'))
 
 let all = make_unary "all" all
+let hash_vec = make_unary "hash-vec" hash_vec
+let hash_native = make_unary "hash-native" hash
 let any = make_unary "any" any
 let lnot_ = make_unary "lnot" O.(lnot)
 let land_ = make_binary "land" O.( land )
@@ -47,6 +49,12 @@ let replicate =
 let mul =
   Bench.Test.create_indexed ~name:"mul"
     ~args:[ 1; 2; 3; 4; 5; 6; 7; 8 (* 9; 10 *) ] (fun n_blocks ->
+      let x = Blocked_matrix.create (8 * n_blocks) false in
+      Staged.stage (fun () -> Blocked_matrix.O.(x * x)))
+
+let hash =
+  Bench.Test.create_indexed ~name:"hash" ~args:[ 1; 2; 3; 4; 5; 6; 7; 8 ]
+    (fun n_blocks ->
       let x = Blocked_matrix.create (8 * n_blocks) false in
       Staged.stage (fun () -> Blocked_matrix.O.(x * x)))
 
@@ -104,4 +112,5 @@ let () =
          ("get", Bench.make_command [ get ]);
          ("replicate", Bench.make_command [ replicate ]);
          ("mul", Bench.make_command [ mul ]);
+         ("hash", Bench.make_command [ hash_native; hash_vec ]);
        ]
