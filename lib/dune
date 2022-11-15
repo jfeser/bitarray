@@ -14,7 +14,7 @@
  (targets bitarray.o bitarray_avx2.o bitarray_avx512skx.o bitarray_sse4.o
    bitarray.h)
  (action
-  (run ispc --target=avx512skx-x8,avx2-i32x8,sse4-i32x8, --pic -o bitarray.o
+  (run ispc --target=avx512skx-i32x8,avx2-i32x8,sse4-i32x8, --pic -o bitarray.o
     -h bitarray.h bitarray.ispc)))
 
 (rule

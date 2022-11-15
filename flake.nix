@@ -6,35 +6,37 @@
   outputs = { self, flake-utils, nixpkgs }@inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-        ispc = if system == "aarch64-darwin" then
-          pkgs.callPackage ./nix/ispc-darwin.nix { }
-        else
-          pkgs.ispc;
-
-        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages;
-        defaultPackage = ocamlPkgs.buildDunePackage rec {
-          pname = "bitarray";
-          version = "0.1";
-          useDune3 = true;
-          minimalOCamlVersion = "4.13";
-          nativeBuildInputs = [
-            ocamlPkgs.base_quickcheck
-            ocamlPkgs.core
-            ocamlPkgs.core_bench
-            pkgs.gcc
-            ispc
-          ];
-          propagatedBuildInputs = [ ocamlPkgs.base ocamlPkgs.fmt ];
-          src = ./.;
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ self.overlay.${system} ];
         };
-
       in {
-        defaultPackage = defaultPackage;
+        overlay = self: super:
+          let
+            ispc = if system == "aarch64-darwin" then
+              super.callPackage ./nix/ispc-darwin.nix { }
+            else
+              self.ispc;
+            gcc = self.gcc;
+          in {
+            ocamlPackages = super.ocamlPackages.overrideScope' (self: super: {
+              bitarray = super.buildDunePackage {
+                pname = "bitarray";
+                version = "0.1";
+                useDune3 = true;
+                minimalOCamlVersion = "4.13";
+                nativeBuildInputs =
+                  [ self.base_quickcheck self.core self.core_bench gcc ispc ];
+                propagatedBuildInputs = [ self.base self.fmt ];
+                src = ./.;
+              };
+            });
+          };
+        defaultPackage = pkgs.ocamlPackages.bitarray;
         devShell = pkgs.mkShell {
           nativeBuildInputs =
             [ pkgs.ocamlformat pkgs.opam pkgs.ocamlPackages.ocaml-lsp ];
-          inputsFrom = [ defaultPackage ];
+          inputsFrom = [ pkgs.ocamlPackages.bitarray ];
         };
       });
 }
