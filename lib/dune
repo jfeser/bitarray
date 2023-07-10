@@ -10,22 +10,7 @@
   (pps ppx_jane)))
 
 (rule
- (deps bitarray.ispc)
- (targets bitarray.o bitarray_avx2.o bitarray_avx512skx.o bitarray_sse4.o
-   bitarray.h)
+ (targets dllbitarray.so libbitarray.a bitarray.h)
+ (deps build.sh bitarray.ispc)
  (action
-  (run ispc --target=avx512skx-i32x8,avx2-i32x8,sse4-i32x8, --pic -o bitarray.o
-    -h bitarray.h bitarray.ispc)))
-
-(rule
- (deps bitarray.o)
- (targets libbitarray.a)
- (action
-  (run ar -rcs libbitarray.a bitarray.o bitarray_avx2.o bitarray_avx512skx.o
-    bitarray_sse4.o)))
-
-(rule
- (deps bitarray.o)
- (targets dllbitarray.so)
- (action
-  (run gcc -shared -o dllbitarray.so bitarray.o)))
+  (run ./build.sh)))
